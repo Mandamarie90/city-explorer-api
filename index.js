@@ -1,10 +1,11 @@
 const express = require('express');
+const axios = require('axios'); // Import Axios for making HTTP requests
 const app = express();
 
-
 app.get('/', (request, response) => {
-  response.send('<h1>This is some html!</h1>');
+  response.send('<h1>This is working!</h1>');
 });
+
 class Forecast {
   constructor(date, description) {
     this.date = date;
@@ -12,42 +13,36 @@ class Forecast {
   }
 }
 
-const cityWeatherData = [
-  { date: '2022-04-01', description: 'Sunny' },
-  { date: '2022-04-02', description: 'Cloudy' },
-  { date: '2022-04-03', description: 'Rainy' }
-];
+app.get('/weather', async (req, res) => {
+  const { lat, lon } = req.query;
 
-const forecasts = cityWeatherData.map(data => {
-  return new Forecast(data.date, data.description);
+  if (!lat || !lon) {
+    return res.status(400).json({ error: 'Latitude and longitude are required' });
+  }
+
+  try {
+    const weatherData = await fetchWeatherData(lat, lon);
+    res.json(weatherData);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch weather data' });
+  }
 });
 
-
-app.get('/weather', (req, res) => {
-  res.json(forecasts);
-});
-
-// Mock for cities
-const cities = [
-  { name: 'Seattle', lat: 47.6062, lon: -122.3321 },
-  { name: 'Paris', lat: 48.8566, lon: 2.3522 },
-  { name: 'Amman', lat: 31.9454, lon: 35.9284 }
-];
-
-const getCityInfo = (lat, lon) => {
-  return cities.find(city => city.lat === parseFloat(lat) && city.lon === parseFloat(lon));
-};
-
-
-const errorHandler = (err, req, res, next) => {
-  console.error(err.stack);
-  if (err.status) {
-    res.status(err.status).json({ error: err.message });
-  } else {
-    res.status(500).json({ error: 'Internal Server Error' });
+const fetchWeatherData = async (lat, lon) => {
+  try {
+    // Make a request to your weather API here
+    const response = await axios.get(`https://api.weatherapi.com/v1/forecast.json?key=YOUR_API_KEY&q=${lat},${lon}&days=3`);
+    // Extract relevant data from the response and shape it
+    const forecasts = response.data.forecast.forecastday.map(day => {
+      const date = day.date;
+      const description = day.day.condition.text;
+      return new Forecast(date, description);
+    });
+    return forecasts;
+  } catch (error) {
+    throw new Error('Failed to fetch weather data');
   }
 };
-app.use(errorHandler);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
