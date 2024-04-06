@@ -2,14 +2,35 @@
 
 const axios = require('axios');
 
-async function getLocation( req, res ) {
-  let city = req.query.city;
-  let url = `https://us1.locationiq.com/v1/search.php?key=${process.env.LOCATION_API_KEY}&q=${city}&format=json`;
-  let axiosResponse = await axios.get(url);
-  let locationData= axiosResponse.data;
-  let location = new Location(locationData[0]);
+// Cache object to store location data
+const locationCache = {};
 
-  res.json(location);
+async function getLocation(req, res) {
+  let city = req.query.city;
+  let cachedLocation = locationCache[city];
+
+  // Check if location data is already cached
+  if (cachedLocation) {
+    console.log('Using cached data for:', city);
+    res.json(cachedLocation);
+    return;
+  }
+
+  let url = `https://us1.locationiq.com/v1/search.php?key=${process.env.LOCATION_API_KEY}&q=${city}&format=json`;
+
+  try {
+    let axiosResponse = await axios.get(url);
+    let locationData = axiosResponse.data;
+    let location = new Location(locationData[0]);
+
+    // Cache the location data for future use
+    locationCache[city] = location;
+
+    res.json(location);
+  } catch (error) {
+    console.error('Error fetching location data:', error);
+    res.status(500).json({ error: 'Error fetching location data' });
+  }
 }
 
 class Location {
@@ -21,3 +42,4 @@ class Location {
 }
 
 module.exports = getLocation;
+
